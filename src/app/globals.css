@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0a0f1a;
+  --color-surface: #111827;
+  --color-surface-2: #1a2333;
+  --color-border: #25304a;
+  --color-foreground: #e2e8f0;
+  --color-muted: #94a3b8;
+  --color-accent: #10b981;
+  --color-accent-dim: #064e3b;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--color-border);
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  cursor: pointer;
+  border: 2px solid var(--color-background);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+  transition: transform 0.1s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  cursor: pointer;
+  border: 2px solid var(--color-background);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+
+::selection {
+  background: rgba(16, 185, 129, 0.3);
+}
