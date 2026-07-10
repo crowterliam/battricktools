@@ -20,99 +20,202 @@ export interface SkillRating {
   skill: string;
   level: number;
   name: string;
-  score: number;
-  weight: number;
+  isPrimary: boolean;
 }
 
 export interface YouthRating {
   grade: PullGrade;
-  totalScore: number;
-  maxScore: number;
-  percentage: number;
+  score: number;
+  rawScore: number;
+  ageMultiplier: number;
   assessment: string;
   primarySkill: { name: string; level: number };
+  secondaryPrimary: { name: string; level: number } | null;
   skillRatings: SkillRating[];
   recommendation: string;
   trainability: string;
 }
 
 /**
- * Rate a youth pull based on skill levels, weighted by importance.
+ * Base score from primary skill level.
+ */
+function primaryBase(level: number): number {
+  if (level <= 1) return 0;
+  if (level === 2) return 5;
+  if (level === 3) return 10;
+  if (level === 4) return 18;
+  if (level === 5) return 25;
+  if (level === 6) return 35;
+  if (level === 7) return 45;
+  if (level === 8) return 58;
+  if (level === 9) return 72;
+  if (level >= 10) return Math.min(95, 85 + (level - 10) * 3);
+  return 0;
+}
+
+/**
+ * Stamina is "arguably their most important attribute" (per game rules).
+ * Affects in-game tiring, PFL management, and recovery.
+ * Max level is 11 (Superb*).
+ */
+function staminaPoints(level: number): number {
+  if (level <= 2) return 0;
+  if (level === 3) return 3;
+  if (level === 4) return 6;
+  if (level === 5) return 9;
+  if (level === 6) return 12;
+  if (level === 7) return 14;
+  return Math.min(18, 14 + (level - 7) * 2);
+}
+
+/**
+ * Mental skill (concentration/consistency) contribution.
+ * These directly affect primary role performance AND fielding/keeping.
  *
- * Weights reflect community consensus:
- * - Primary skill (batting/bowling): dominant factor
- * - Keeping: critical if keeper, minor otherwise
- * - Secondary (conc/cons): significant for long-term value
- * - Stamina: important for longevity
- * - Fielding: minor bonus
+ * @param level skill level
+ * @param isRoleMatching true if this skill directly boosts the player's role
+ *                       (conc for batsmen, cons for bowlers)
+ */
+function mentalPoints(level: number, isRoleMatching: boolean): number {
+  if (level <= 2) return 0;
+  const base = level <= 3 ? 2 :
+    level === 4 ? 5 :
+    level === 5 ? 8 :
+    level === 6 ? 12 :
+    level === 7 ? 16 :
+    level === 8 ? 19 :
+    Math.min(22, 19 + (level - 8) * 2);
+  return isRoleMatching ? base : Math.round(base * 0.4);
+}
+
+/**
+ * Fielding matters for all players — "catches win matches."
+ */
+function fieldingPoints(level: number): number {
+  if (level <= 2) return 0;
+  if (level === 3) return 2;
+  if (level === 4) return 4;
+  if (level === 5) return 6;
+  if (level === 6) return 7;
+  return Math.min(10, 7 + (level - 6));
+}
+
+/**
+ * Rate a youth pull.
+ *
+ * Scoring reflects actual attribute roles per game rules:
+ * - Primary skill (bat/bowl/keep) is the foundation
+ * - Stamina is universally critical (performance, PFL, recovery)
+ * - Concentration boosts batting + fielding/keeping for everyone
+ * - Consistency boosts bowling + fielding/keeping for everyone
+ * - Fielding benefits all players
+ *
+ * Grade thresholds:
+ *   85+ → S (generational)
+ *   70+ → A (excellent)
+ *   50+ → B (solid, worth training)
+ *   30+ → C (average, borderline)
+ *   10+ → D (below average)
+ *   <10 → F (poor)
  */
 export function rateYouthPull(input: YouthPlayerInput): YouthRating {
-  const { age, stamina, batting, bowling, keeping, fielding, concentration, consistency, isBatsman, isBowler, isKeeper } = input;
+  const {
+    age, stamina, batting, bowling, keeping, fielding,
+    concentration, consistency, isBatsman, isBowler, isKeeper,
+  } = input;
 
-  const skillRatings: SkillRating[] = [];
+  const primaries: { name: string; level: number; active: boolean }[] = [
+    { name: "Batting", level: batting, active: isBatsman },
+    { name: "Bowling", level: bowling, active: isBowler },
+  ];
+  if (isKeeper) primaries.push({ name: "Keeping", level: keeping, active: true });
 
-  const primaryBat = isBatsman ? 3.0 : isBowler ? 1.0 : 0.5;
-  const primaryBowl = isBowler ? 3.0 : isBatsman ? 1.0 : 0.5;
-  const keepWeight = isKeeper ? 2.5 : 0.3;
+  const activePrimaries = primaries.filter((p) => p.active);
+  const sorted = [...activePrimaries].sort((a, b) => b.level - a.level);
+  const mainPrimary = sorted[0] ?? { name: "None", level: 0 };
+  const secondPrimary = sorted[1] ?? null;
 
-  skillRatings.push({ skill: "Batting", level: batting, name: skillName(batting), score: batting * primaryBat, weight: primaryBat });
-  skillRatings.push({ skill: "Bowling", level: bowling, name: skillName(bowling), score: bowling * primaryBowl, weight: primaryBowl });
-  skillRatings.push({ skill: "Keeping", level: keeping, name: skillName(keeping), score: keeping * keepWeight, weight: keepWeight });
-  skillRatings.push({ skill: "Concentration", level: concentration, name: skillName(concentration), score: concentration * 1.5, weight: 1.5 });
-  skillRatings.push({ skill: "Consistency", level: consistency, name: skillName(consistency), score: consistency * 1.5, weight: 1.5 });
-  skillRatings.push({ skill: "Stamina", level: stamina, name: skillName(stamina), score: stamina * 1.0, weight: 1.0 });
-  skillRatings.push({ skill: "Fielding", level: fielding, name: skillName(fielding), score: fielding * 0.5, weight: 0.5 });
+  let score = primaryBase(mainPrimary.level);
 
-  const totalScore = skillRatings.reduce((sum, s) => sum + s.score, 0);
-  const maxWeight = skillRatings.reduce((sum, s) => sum + s.weight, 0);
-  const maxScore = maxWeight * 20;
-  const percentage = (totalScore / maxScore) * 100;
+  score += staminaPoints(stamina);
+
+  score += mentalPoints(concentration, isBatsman || isKeeper);
+  score += mentalPoints(consistency, isBowler || isKeeper);
+
+  score += fieldingPoints(fielding);
+
+  if (secondPrimary && secondPrimary.level >= 7) score += 15;
+  else if (secondPrimary && secondPrimary.level >= 5) score += 8;
+
+  const ageMultiplier =
+    age <= 17 ? 1.15 :
+    age === 18 ? 1.05 :
+    age === 19 ? 0.95 :
+    age === 20 ? 0.85 :
+    age === 21 ? 0.75 :
+    age <= 24 ? 0.65 :
+    age <= 27 ? 0.55 :
+    age <= 30 ? 0.45 :
+    0.35;
+
+  const rawScore = score;
+  score = Math.round(score * ageMultiplier);
 
   const grade: PullGrade =
-    percentage >= 70 ? "S" :
-    percentage >= 55 ? "A" :
-    percentage >= 42 ? "B" :
-    percentage >= 30 ? "C" :
-    percentage >= 20 ? "D" : "F";
-
-  const primarySkillLevel = Math.max(
-    isBatsman ? batting : 0,
-    isBowler ? bowling : 0,
-  );
-  const primarySkillName = isBatsman && isBowler
-    ? (batting >= bowling ? "Batting" : "Bowling")
-    : isBatsman ? "Batting"
-    : isBowler ? "Bowling"
-    : "None";
+    score >= 85 ? "S" :
+    score >= 70 ? "A" :
+    score >= 50 ? "B" :
+    score >= 30 ? "C" :
+    score >= 10 ? "D" : "F";
 
   const assessment =
-    grade === "S" ? "Generational pull — elite talent with outstanding skills for their age." :
-    grade === "A" ? "Excellent pull — strong primary skills and good secondaries. A definite keeper." :
-    grade === "B" ? "Solid pull — worth training. Has clear potential in their primary role." :
-    grade === "C" ? "Average pull — trainable but unremarkable. Consider listing if squad is full." :
-    grade === "D" ? "Below-average pull — weak skills. Only train if desperate for depth." :
-    "Poor pull — minimal talent. List or release.";
+    grade === "S" ? "Exceptional player — elite skills with outstanding long-term value." :
+    grade === "A" ? "Excellent player — strong primary skills with good all-round attributes." :
+    grade === "B" ? "Solid player — worth training or retaining. Clear potential in their primary role." :
+    grade === "C" ? "Average player — serviceable but unremarkable. Consider upgrading if possible." :
+    grade === "D" ? "Below-average — weak skills. Only keep if desperate for squad depth." :
+    "Poor player — minimal value. Release or sell.";
 
-  const ageBonus = age <= 17 ? "Maximum training window (4+ seasons of youth training ahead)." :
-    age === 18 ? "Good training window remaining." :
-    age === 19 ? "Limited training window — prioritize key skills." :
-    "Minimal training window — most growth already happened.";
+  const trainability =
+    age <= 17 ? `Age 17 — peak potential. 4 seasons before the age 21 freezecap. Score ×${ageMultiplier}.` :
+    age === 18 ? `Age 18 — high potential. 3 seasons of training remaining. Score ×${ageMultiplier}.` :
+    age === 19 ? `Age 19 — good potential. 2 seasons left. Score ×${ageMultiplier}.` :
+    age === 20 ? `Age 20 — final youth season. 1 season before freezecap. Score ×${ageMultiplier}.` :
+    age === 21 ? `Age 21 — freezecap hit. Minimal primary training value. Score ×${ageMultiplier}.` :
+    age <= 24 ? `Age ${age} — declining. Limited training returns. Score ×${ageMultiplier}.` :
+    age <= 27 ? `Age ${age} — veteran territory. Value is in current skills, not growth. Score ×${ageMultiplier}.` :
+    age <= 30 ? `Age ${age} — experienced. Skills will start declining soon. Score ×${ageMultiplier}.` :
+    `Age ${age} — twilight years. Expect skill deterioration. Score ×${ageMultiplier}.`;
 
   const recommendation =
-    grade === "S" || grade === "A" ? "Train immediately. Allocate primary nets now — this is a future star." :
-    grade === "B" ? `Train as ${primarySkillName.toLowerCase()}. Worth 2-3 nets if squad allows.` :
-    grade === "C" ? `Borderline. Train only if you need ${primarySkillName.toLowerCase()} depth, otherwise list for transfer.` :
-    "List for transfer or release. Not worth the net investment.";
+    grade === "S" || grade === "A"
+      ? "Priority asset. Allocate primary nets now and build around this player."
+      : grade === "B"
+        ? `Worth retaining and training as ${mainPrimary.name.toLowerCase()}. Allocate 2-3 nets if squad allows.`
+        : grade === "C"
+          ? `Borderline. Keep for ${mainPrimary.name.toLowerCase()} depth or sell on the transfer market.`
+          : "Sell or release. Not worth the net investment.";
+
+  const skillRatings: SkillRating[] = [
+    { skill: "Batting", level: batting, name: skillName(batting), isPrimary: isBatsman },
+    { skill: "Bowling", level: bowling, name: skillName(bowling), isPrimary: isBowler },
+    { skill: "Keeping", level: keeping, name: skillName(keeping), isPrimary: isKeeper },
+    { skill: "Concentration", level: concentration, name: skillName(concentration), isPrimary: false },
+    { skill: "Consistency", level: consistency, name: skillName(consistency), isPrimary: false },
+    { skill: "Stamina", level: stamina, name: skillName(stamina), isPrimary: false },
+    { skill: "Fielding", level: fielding, name: skillName(fielding), isPrimary: false },
+  ];
 
   return {
     grade,
-    totalScore,
-    maxScore,
-    percentage,
+    score,
+    rawScore,
+    ageMultiplier,
     assessment,
-    primarySkill: { name: primarySkillName, level: primarySkillLevel },
+    primarySkill: mainPrimary,
+    secondaryPrimary: secondPrimary,
     skillRatings,
     recommendation,
-    trainability: ageBonus,
+    trainability,
   };
 }

@@ -1,4 +1,6 @@
 import TrainingCalculator from "@/components/TrainingCalculator";
+import TrainingAnalysis from "@/components/TrainingAnalysis";
+import PlayerEvaluator from "@/components/PlayerEvaluator";
 import PopTimingsTable from "@/components/PopTimingsTable";
 import StrategyGuide from "@/components/StrategyGuide";
 import FormulaReference from "@/components/FormulaReference";
@@ -8,7 +10,8 @@ import Nav from "@/components/Nav";
 export default function Home() {
   return (
     <div className="flex flex-1 flex-col">
-      <Nav active="training" />
+      <Nav />
+
       {/* ===== HERO ===== */}
       <header className="relative overflow-hidden border-b border-border">
         <div
@@ -20,29 +23,35 @@ export default function Home() {
         />
         <div className="relative mx-auto flex max-w-6xl flex-col items-center px-4 py-20 text-center">
           <span className="mb-4 rounded-full border border-accent/30 bg-accent-dim/50 px-4 py-1.5 text-xs font-semibold text-accent">
-            Battrick Training Optimization Blueprint
+            Battrick Training Optimization
           </span>
           <h1 className="mb-4 max-w-3xl text-4xl font-black tracking-tight md:text-6xl">
             Maximise Every{" "}
             <span className="text-accent">Training Net</span>
           </h1>
           <p className="max-w-2xl text-lg text-muted">
-            Calculate pop timings, model net-stacking decay, and apply the
-            community&apos;s three-rule strategy to build elite players
-            efficiently.
+            Calculate pop timings, evaluate players, analyse efficiency cliffs,
+            and apply the community&apos;s three-rule strategy to build elite
+            players efficiently.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <a
               href="#calculator"
               className="rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-background transition-transform hover:scale-105"
             >
-              Open Calculator
+              Training Calculator
             </a>
             <a
-              href="#timings"
+              href="#evaluator"
               className="rounded-xl border border-border bg-surface px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:border-accent/40"
             >
-              Pop Timings Table
+              Player Evaluator
+            </a>
+            <a
+              href="#analysis"
+              className="rounded-xl border border-border bg-surface px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:border-accent/40"
+            >
+              Efficiency Analysis
             </a>
           </div>
         </div>
@@ -51,7 +60,13 @@ export default function Home() {
       {/* ===== CALCULATOR ===== */}
       <TrainingCalculator />
 
-      {/* ===== NET STACKING + FORMULAS ===== */}
+      {/* ===== PLAYER EVALUATOR ===== */}
+      <PlayerEvaluator />
+
+      {/* ===== EFFICIENCY ANALYSIS ===== */}
+      <TrainingAnalysis />
+
+      {/* ===== NET STACKING + MODEL ===== */}
       <section className="mx-auto w-full max-w-6xl px-4">
         <div className="grid gap-6 lg:grid-cols-2">
           <NetStackingChart />

@@ -6,7 +6,7 @@ import {
   type WeeksResult,
 } from "./trainingData";
 import { getPrimaryWeeks, getSecondaryWeeks, type InterpolatedResult } from "./gameData";
-import { skillName, skillTier } from "./skills";
+import { skillName, skillTier, WEEKS_PER_SEASON } from "./skills";
 import {
   evaluateStrategy,
   type Recommendation,
@@ -21,6 +21,25 @@ export interface CalculatorInput {
   traineeCount: number;
   generational: boolean;
   constants: FormulaConstants;
+  currentWeek: number;
+}
+
+export interface SeasonProjection {
+  age: number;
+  weeks: number;
+  weeksPerPop: number;
+  pops: number;
+  cumulativePops: number;
+  projectedLevel: number;
+}
+
+export interface TrainingTimeline {
+  weeksRemainingThisSeason: number;
+  totalWeeksRemaining: number;
+  seasons: SeasonProjection[];
+  totalPops: number;
+  projectedLevelAtFreeze: number;
+  pastFreeze: boolean;
 }
 
 export interface CalculatorResult {
@@ -35,6 +54,7 @@ export interface CalculatorResult {
   recommendation: Recommendation;
   breakdown: BreakdownRow[];
   usesSkillLevel: boolean;
+  timeline: TrainingTimeline;
 }
 
 export interface BreakdownRow {
@@ -43,8 +63,100 @@ export interface BreakdownRow {
   tone: "positive" | "neutral" | "warning" | "danger";
 }
 
+function getWeeksForAge(
+  trainingType: TrainingType,
+  age: number,
+  level: number,
+  nets: number,
+): number {
+  const power = netStackingPower(nets);
+  let base: number;
+
+  if (trainingType === "primary") {
+    base = getPrimaryWeeks(age, Math.floor(level)).weeks;
+  } else if (trainingType === "secondary") {
+    base = getSecondaryWeeks(age, Math.floor(level)).weeks;
+  } else {
+    const r = getSimpleWeeks(trainingType, age, nets);
+    base = r.weeks;
+  }
+
+  return base > 0 ? base / power : 0;
+}
+
+export function buildTimeline(
+  trainingType: TrainingType,
+  age: number,
+  level: number,
+  nets: number,
+  currentWeek: number,
+  generational: boolean,
+): TrainingTimeline {
+  const freezeAge = generational ? 99 : 21;
+  const weeksRemainingThisSeason = Math.max(0, 17 - currentWeek);
+
+  if (age >= freezeAge) {
+    return {
+      weeksRemainingThisSeason,
+      totalWeeksRemaining: 0,
+      seasons: [],
+      totalPops: 0,
+      projectedLevelAtFreeze: level,
+      pastFreeze: true,
+    };
+  }
+
+  const seasons: SeasonProjection[] = [];
+  let cumulativePops = 0;
+  let currentLevel = level;
+  let totalWeeks = 0;
+
+  const firstSeasonWeeks = weeksRemainingThisSeason;
+  if (firstSeasonWeeks > 0) {
+    const wpp = getWeeksForAge(trainingType, age, currentLevel, nets);
+    const pops = wpp > 0 ? firstSeasonWeeks / wpp : 0;
+    cumulativePops += pops;
+    currentLevel += pops;
+    totalWeeks += firstSeasonWeeks;
+    seasons.push({
+      age,
+      weeks: firstSeasonWeeks,
+      weeksPerPop: wpp,
+      pops,
+      cumulativePops,
+      projectedLevel: currentLevel,
+    });
+  }
+
+  for (let a = age + 1; a < freezeAge; a++) {
+    const wpp = getWeeksForAge(trainingType, a, currentLevel, nets);
+    if (wpp <= 0) break;
+    const pops = WEEKS_PER_SEASON / wpp;
+    cumulativePops += pops;
+    currentLevel += pops;
+    totalWeeks += WEEKS_PER_SEASON;
+    seasons.push({
+      age: a,
+      weeks: WEEKS_PER_SEASON,
+      weeksPerPop: wpp,
+      pops,
+      cumulativePops,
+      projectedLevel: currentLevel,
+    });
+  }
+
+  return {
+    weeksRemainingThisSeason,
+    totalWeeksRemaining: totalWeeks,
+    seasons,
+    totalPops: cumulativePops,
+    projectedLevelAtFreeze: currentLevel,
+    pastFreeze: false,
+  };
+}
+
 export function calculate(input: CalculatorInput): CalculatorResult {
-  const { age, level, nets, trainingType, traineeCount, generational, constants } =
+  const { age, level, nets, trainingType, traineeCount, generational, constants, currentWeek } =
     input;
 
   let singleNet: InterpolatedResult | WeeksResult;
@@ -77,6 +189,7 @@ export function calculate(input: CalculatorInput): CalculatorResult {
   });
 
   const tier = skillTier(level);
+  const timeline = buildTimeline(trainingType, age, level, nets, currentWeek, generational);
 
   const absorptionTone: BreakdownRow["tone"] =
     absorption > 0.8 ? "positive" : absorption > 0.45 ? "warning" : "danger";
@@ -119,5 +232,6 @@ export function calculate(input: CalculatorInput): CalculatorResult {
     recommendation: strategy.recommendation,
     breakdown,
     usesSkillLevel,
+    timeline,
   };
 }

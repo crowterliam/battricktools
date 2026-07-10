@@ -3,8 +3,7 @@
 import { useMemo, useState } from "react";
 import { calculate, type CalculatorResult } from "@/lib/calculator";
 import { DEFAULT_CONSTANTS, type FormulaConstants } from "@/lib/formulas";
-import { SKILL_LEVELS, skillName, MAX_AGE } from "@/lib/skills";
-import {
+import { SKILL_LEVELS, skillName, MAX_AGE } from "@/lib/skills";import {
   NET_LIMITS,
   TRAINING_TYPE_LABELS,
   type TrainingType,
@@ -40,7 +39,7 @@ export default function TrainingCalculator() {
   const usesSkillLevel = trainingType === "primary" || trainingType === "secondary";
 
   const result: CalculatorResult = useMemo(
-    () => calculate({ age, level, nets: effectiveNets, trainingType, traineeCount, generational, constants }),
+    () => calculate({ age, level, nets: effectiveNets, trainingType, traineeCount, generational, constants, currentWeek: 1 }),
     [age, level, effectiveNets, trainingType, traineeCount, generational, constants],
   );
 

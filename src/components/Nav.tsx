@@ -1,13 +1,15 @@
 import Link from "next/link";
 
 const LINKS = [
-  { href: "/", label: "Training", key: "training" },
-  { href: "/youth", label: "Youth Academy", key: "youth" },
+  { href: "/#calculator", label: "Calculator", key: "calculator" },
+  { href: "/#analysis", label: "Efficiency", key: "analysis" },
+  { href: "/#evaluator", label: "Player Evaluator", key: "evaluator" },
+  { href: "/#timings", label: "Pop Timings", key: "timings" },
 ];
 
-export default function Nav({ active }: { active: string }) {
+export default function Nav() {
   return (
-    <nav className="border-b border-border bg-surface/50 backdrop-blur-sm">
+    <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <Link href="/" className="flex items-center gap-2 text-sm font-bold tracking-tight">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-dim text-accent">BT</span>
@@ -18,11 +20,7 @@ export default function Nav({ active }: { active: string }) {
             <Link
               key={link.key}
               href={link.href}
-              className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
-                active === link.key
-                  ? "bg-accent-dim text-accent"
-                  : "text-muted hover:text-foreground"
-              }`}
+              className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:text-foreground"
             >
               {link.label}
             </Link>
