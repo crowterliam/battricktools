@@ -1,30 +1,40 @@
-import { ageAbsorption, netEfficiency, netPower, type FormulaConstants } from "./formulas";
-import { interpolateWeeks, type InterpolatedTiming } from "./popTimings";
+import { ageAbsorption, type FormulaConstants } from "./formulas";
+import {
+  netStackingPower,
+  getSimpleWeeks,
+  type TrainingType,
+  type WeeksResult,
+} from "./trainingData";
+import { getPrimaryWeeks, getSecondaryWeeks, type InterpolatedResult } from "./gameData";
 import { skillName, skillTier } from "./skills";
-import { evaluateStrategy, type Recommendation, type StrategyEvaluation, type NetType } from "./strategy";
+import {
+  evaluateStrategy,
+  type Recommendation,
+  type StrategyEvaluation,
+} from "./strategy";
 
 export interface CalculatorInput {
   age: number;
   level: number;
   nets: number;
-  netType: NetType;
+  trainingType: TrainingType;
   traineeCount: number;
   generational: boolean;
   constants: FormulaConstants;
 }
 
 export interface CalculatorResult {
-  singleNetWeeks: InterpolatedTiming;
+  singleNet: InterpolatedResult | WeeksResult;
   estimatedWeeks: number;
   ageAbsorptionPct: number;
   netPowerValue: number;
   netEfficiencyPct: number;
-  perNetPower: number;
   levelName: string;
   tier: string;
   strategy: StrategyEvaluation;
   recommendation: Recommendation;
   breakdown: BreakdownRow[];
+  usesSkillLevel: boolean;
 }
 
 export interface BreakdownRow {
@@ -34,17 +44,37 @@ export interface BreakdownRow {
 }
 
 export function calculate(input: CalculatorInput): CalculatorResult {
-  const { age, level, nets, netType, traineeCount, generational, constants } = input;
+  const { age, level, nets, trainingType, traineeCount, generational, constants } =
+    input;
 
-  const singleNet = interpolateWeeks(age, level);
-  const power = netPower(nets, constants.netDecay);
-  const efficiency = netEfficiency(nets, constants.netDecay);
+  let singleNet: InterpolatedResult | WeeksResult;
+  let usesSkillLevel: boolean;
+
+  if (trainingType === "primary") {
+    singleNet = getPrimaryWeeks(age, level);
+    usesSkillLevel = true;
+  } else if (trainingType === "secondary") {
+    singleNet = getSecondaryWeeks(age, level);
+    usesSkillLevel = true;
+  } else {
+    singleNet = getSimpleWeeks(trainingType, age, nets);
+    usesSkillLevel = false;
+  }
+
+  const power = netStackingPower(nets);
+  const efficiency = power / nets;
   const absorption = ageAbsorption(age, constants.ageSteepness, constants.ageCliff);
 
-  const secondaryFactor = netType === "secondary" ? 2.0 : 1.0;
-  const estimatedWeeks = (singleNet.weeks * secondaryFactor) / power;
+  const baseWeeks = "weeks" in singleNet ? singleNet.weeks : 0;
+  const estimatedWeeks = baseWeeks > 0 ? baseWeeks / power : 0;
 
-  const strategy = evaluateStrategy({ age, nets, netType, traineeCount, generational });
+  const strategy = evaluateStrategy({
+    age,
+    nets,
+    netType: trainingType === "secondary" ? "secondary" : "primary",
+    traineeCount,
+    generational,
+  });
 
   const tier = skillTier(level);
 
@@ -52,18 +82,13 @@ export function calculate(input: CalculatorInput): CalculatorResult {
     absorption > 0.8 ? "positive" : absorption > 0.45 ? "warning" : "danger";
 
   const efficiencyTone: BreakdownRow["tone"] =
-    nets <= 3 ? "positive" : "warning";
+    nets <= 2 ? "positive" : nets === 3 ? "warning" : "danger";
 
   const breakdown: BreakdownRow[] = [
     {
       label: "Single-net baseline",
-      value: `${singleNet.weeks.toFixed(1)} weeks`,
+      value: baseWeeks > 0 ? `${baseWeeks.toFixed(1)} weeks` : "N/A",
       tone: "neutral",
-    },
-    {
-      label: "Age absorption",
-      value: `${(absorption * 100).toFixed(0)}%`,
-      tone: absorptionTone,
     },
     {
       label: `Net power (${nets} net${nets > 1 ? "s" : ""})`,
@@ -75,19 +100,24 @@ export function calculate(input: CalculatorInput): CalculatorResult {
       value: `${(efficiency * 100).toFixed(0)}%`,
       tone: efficiencyTone,
     },
+    {
+      label: "Age absorption (modelled)",
+      value: `${(absorption * 100).toFixed(0)}%`,
+      tone: absorptionTone,
+    },
   ];
 
   return {
-    singleNetWeeks: singleNet,
+    singleNet,
     estimatedWeeks,
     ageAbsorptionPct: absorption * 100,
     netPowerValue: power,
     netEfficiencyPct: efficiency * 100,
-    perNetPower: power / nets,
     levelName: skillName(level),
     tier,
     strategy,
     recommendation: strategy.recommendation,
     breakdown,
+    usesSkillLevel,
   };
 }

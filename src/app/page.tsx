@@ -59,26 +59,27 @@ export default function Home() {
               <li className="flex gap-3">
                 <span className="font-mono font-bold text-accent">1.</span>
                 <span>
-                  <strong className="text-foreground">Baseline lookup:</strong>{" "}
-                  Single-net weeks come from crowdsourced data, interpolated via
-                  inverse-distance weighting when an exact match isn&apos;t
-                  available.
+                  <strong className="text-foreground">Community data lookup:</strong>{" "}
+                  Single-net weeks come from crowdsourced pop-timing tables,
+                  interpolated via inverse-distance weighting for (age, skill level)
+                  combinations without an exact data point.
                 </span>
               </li>
               <li className="flex gap-3">
                 <span className="font-mono font-bold text-accent">2.</span>
                 <span>
-                  <strong className="text-foreground">Net stacking:</strong>{" "}
-                  Multi-net weeks divide by the total net power M(N) from
-                  Formula C.
+                  <strong className="text-foreground">Skill-level scaling:</strong>{" "}
+                  Both age and current skill level affect training speed — higher
+                  levels take longer. This was made explicit in the Season 57
+                  training overhaul (previously it was linear).
                 </span>
               </li>
               <li className="flex gap-3">
                 <span className="font-mono font-bold text-accent">3.</span>
                 <span>
-                  <strong className="text-foreground">Age absorption:</strong>{" "}
-                  Formula B&apos;s sigmoid models how much training a player can
-                  absorb — feeding into the strategy recommendation.
+                  <strong className="text-foreground">Net stacking:</strong>{" "}
+                  Multi-net weeks divide by empirical power ratios
+                  (1.0× / 1.5× / 1.76× / 1.88×) from community data.
                 </span>
               </li>
               <li className="flex gap-3">

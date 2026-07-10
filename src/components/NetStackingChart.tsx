@@ -1,21 +1,21 @@
-import { netEfficiency, netPower, DEFAULT_CONSTANTS } from "@/lib/formulas";
+import { EMPIRICAL_NET_POWER } from "@/lib/formulas";
 
 const NET_DATA = [1, 2, 3, 4].map((n) => ({
   nets: n,
-  power: netPower(n, DEFAULT_CONSTANTS.netDecay),
-  efficiency: netEfficiency(n, DEFAULT_CONSTANTS.netDecay),
+  power: EMPIRICAL_NET_POWER[n].power,
+  efficiency: EMPIRICAL_NET_POWER[n].efficiency,
   label:
-    n === 3 ? "Sweet Spot" : n === 4 ? "Over-stacking" : undefined,
+    n === 3 ? "Sweet Spot" : n === 4 ? "Inefficient" : undefined,
 }));
 
 export default function NetStackingChart() {
-  const maxPower = 3.0;
+  const maxPower = 2.2;
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-6">
       <h3 className="mb-1 font-semibold">Net Stacking Efficiency</h3>
       <p className="mb-6 text-sm text-muted">
-        Total power vs. per-net efficiency as identical nets are stacked.
+        Empirical power ratios from actual game data (1 primary net baseline).
       </p>
       <div className="flex items-end justify-around gap-4" style={{ height: "200px" }}>
         {NET_DATA.map((d) => {
@@ -29,7 +29,7 @@ export default function NetStackingChart() {
             >
               <div className="flex w-full flex-col items-center gap-1">
                 <span className="font-mono text-sm font-bold text-accent">
-                  {d.power.toFixed(1)}×
+                  {d.power.toFixed(2)}×
                 </span>
                 <span className="text-xs text-muted">
                   {(d.efficiency * 100).toFixed(0)}%/net
