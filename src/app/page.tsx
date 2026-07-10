@@ -3,10 +3,12 @@ import PopTimingsTable from "@/components/PopTimingsTable";
 import StrategyGuide from "@/components/StrategyGuide";
 import FormulaReference from "@/components/FormulaReference";
 import NetStackingChart from "@/components/NetStackingChart";
+import Nav from "@/components/Nav";
 
 export default function Home() {
   return (
     <div className="flex flex-1 flex-col">
+      <Nav active="training" />
       {/* ===== HERO ===== */}
       <header className="relative overflow-hidden border-b border-border">
         <div
